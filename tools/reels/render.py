@@ -15,7 +15,7 @@ edit.json:
     {"start": 9, "end": 12, "kind": "text", "tag": "Главное", "text": "Код это шаг №5", "accent": "шаг №5"},
     {"start": 13, "end": 17, "kind": "list", "title": "3 шага", "items": ["...", "..."]},
     {"start": 18, "end": 22, "kind": "chat", "title": "Telegram-бот", "messages": [{"me": false, "text": "..."}]},
-    {"start": 23, "end": 26, "kind": "clip", "file": "broll.mp4", "from": 0}
+    {"start": 23, "end": 26, "kind": "clip", "file": "broll.mp4", "from": 0, "transition": "sharp"}
   ],
   "cta": {"text": "Напиши «AI»\\nв комментариях", "accent": "«AI»", "start": -3.5}
   # hook/cta take an optional "top" (px) to keep the plate off the speaker's face
@@ -231,6 +231,9 @@ def main(plan_path):
     build_ass(words, f"{tmp}/subs.ass")
 
     overlays = []  # (kind, start, end, input_args)
+    # per-card transition: "smooth" = soft fade, "sharp" = fast slide in / out (for contrast, lists)
+    transition = {(c["start"], c["end"]): c.get("transition", plan.get("transition", "smooth"))
+                  for c in plan.get("cards", [])}
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=CHROME)
@@ -277,9 +280,17 @@ def main(plan_path):
         args += inp
         prep = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},setsar=1," if kind == "clip" else ""
         d = e - s
-        fc.append(f"[{idx}:v]{prep}format=rgba,trim=duration={d:.3f},fade=in:st=0:d=0.18:alpha=1,"
-                  f"fade=out:st={max(d - 0.18, 0):.3f}:d=0.18:alpha=1,setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
-        fc.append(f"[{last}][o{idx}]overlay=eof_action=pass:enable='between(t,{s},{e})'[v{idx}]")
+        if transition.get((s, e)) == "sharp":
+            a, b = 0.22, 0.16  # slide-in and slide-out durations
+            fc.append(f"[{idx}:v]{prep}format=rgba,trim=duration={d:.3f},setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
+            x = (f"if(lt(t,{s + a:.3f}),main_w*pow(1-(t-{s})/{a},3),"
+                 f"if(gt(t,{e - b:.3f}),-main_w*pow((t-{e - b:.3f})/{b},2),0))")
+            fc.append(f"[{last}][o{idx}]overlay=x='{x}':y=0:eval=frame:eof_action=pass:enable='between(t,{s},{e})'[v{idx}]")
+        else:
+            fd = 0.4
+            fc.append(f"[{idx}:v]{prep}format=rgba,trim=duration={d:.3f},fade=in:st=0:d={fd}:alpha=1,"
+                      f"fade=out:st={max(d - fd, 0):.3f}:d={fd}:alpha=1,setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
+            fc.append(f"[{last}][o{idx}]overlay=eof_action=pass:enable='between(t,{s},{e})'[v{idx}]")
         last = f"v{idx}"; idx += 1
 
     subs = f"{tmp}/subs.ass".replace(":", "\\:")
