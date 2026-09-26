@@ -16,5 +16,8 @@ for spec in Unbounded:800 Unbounded:900 Manrope:700 Manrope:800; do
   [ -f $F/$fam-$w.ttf ] || curl -sS -o $F/$fam-$w.ttf \
     "$(curl -sS "https://fonts.googleapis.com/css2?family=$fam:wght@$w" | grep -oE 'https://[^)]+\.ttf' | head -1)"
 done
+# monospace for the "terminal" card theme
+[ -f $F/JetBrainsMono-800.ttf ] || curl -sS -o $F/JetBrainsMono-800.ttf \
+  "$(curl -sS "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@800" | grep -oE 'https://[^)]+\.ttf' | head -1)"
 fc-cache -f >/dev/null
 echo "reel tools ready"

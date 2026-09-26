@@ -9,5 +9,15 @@ punch-in zooms, CTA plate, loudness normalised to -14 LUFS.
     # fix spelling in words.json using whisper.txt, write edit.json (see render.py docstring)
     python3 render.py work/edit.json
 
-Card kinds: `stat` (animated number), `text`, `list`, `chat` (messenger mock-up),
-`clip` (any video file, e.g. the author's own footage).
+B-roll from Pexels (needs `PEXELS_API_KEY`): `python3 pexels.py search "man typing laptop"`, then
+`python3 pexels.py get <id> broll/`. Check several frames of every clip before using it.
+
+Card kinds: `stat` (animated number), `text`, `list`, `chat` (messenger mock-up, `"frame": "phone"`
+draws a Telegram screen in a phone), `clip` (any video file: Pexels stock or the author's own footage).
+
+Card themes (`"theme"` in the plan or per card), pick one per reel to fit its topic and don't repeat
+the previous reel's: `dark` (grid on near-black), `paper` (light sheet, marker highlights),
+`glass` (frosted panel over the blurred speaker), `terminal` (code window for dev topics).
+
+Transitions (`"transition"`): `smooth` fades, `sharp` slides a card in or hard-cuts a clip with a
+quick punch-in. Clips get a mild grade to match the speaker footage (`"grade": false` to skip).

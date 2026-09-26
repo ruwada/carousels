@@ -10,17 +10,24 @@ edit.json:
   "out": "out.mp4",
   "hook":  {"text": "AI уже продаёт\\nвместо менеджеров", "accent": "продаёт", "start": 0, "end": 3},
   "zooms": [{"start": 5.0, "end": 7.5, "scale": 1.18}],
+  "theme": "glass",                # design of the graphic cards, pick per reel: dark | paper | glass | terminal
+  "transition": "smooth",          # default for cards and clips: smooth (fade) | sharp (slide / hard cut + punch-in)
   "cards": [                       # B-roll, full screen, speech and subtitles continue on top
     {"start": 4, "end": 7, "kind": "stat", "value": "90%", "label": "проектов ломаются после запуска"},
     {"start": 9, "end": 12, "kind": "text", "tag": "Главное", "text": "Код это шаг №5", "accent": "шаг №5"},
-    {"start": 13, "end": 17, "kind": "list", "title": "3 шага", "items": ["...", "..."]},
-    {"start": 18, "end": 22, "kind": "chat", "title": "Telegram-бот", "messages": [{"me": false, "text": "..."}]},
-    {"start": 23, "end": 26, "kind": "clip", "file": "broll.mp4", "from": 0, "transition": "sharp"}
+    {"start": 13, "end": 17, "kind": "list", "title": "3 шага", "items": ["...", "..."], "theme": "paper"},
+    {"start": 18, "end": 22, "kind": "chat", "title": "Telegram-бот", "frame": "phone",
+     "messages": [{"me": true, "text": "..."}, {"me": false, "text": "...", "time": "19:02"}]},
+    {"start": 23, "end": 26, "kind": "clip", "file": "broll.mp4", "from": 0, "transition": "sharp", "grade": true}
   ],
   "cta": {"text": "Напиши «AI»\\nв комментариях", "accent": "«AI»", "start": -3.5}
   # hook/cta take an optional "top" (px) to keep the plate off the speaker's face
 }
 All times are seconds in the source video; a negative cta.start counts from the end.
+Themes: dark = grid on near-black; paper = light sheet with marker highlights; glass = frosted panel
+over the blurred speaker (the speaker stays in frame); terminal = code window for dev topics.
+A chat with "frame": "phone" is drawn as a Telegram screen in a phone; "me" messages go right.
+Clips get a mild grade to sit with the speaker's footage ("grade": false to keep them as shot).
 """
 import html, json, os, re, shutil, subprocess, sys, tempfile
 
@@ -131,6 +138,59 @@ h1{{font-family:Unbounded;font-weight:800;font-size:92px;line-height:1.08;letter
 @keyframes pop{{0%{{opacity:0;transform:scale(.6)}}70%{{opacity:1;transform:scale(1.06)}}100%{{transform:scale(1)}}}}
 @keyframes drift{{from{{transform:translate(0,0)}}to{{transform:translate(-160px,120px)}}}}
 @keyframes slidein{{from{{opacity:0;transform:translateY(-40px) scale(.9)}}to{{opacity:1;transform:none}}}}
+@keyframes panel{{from{{opacity:0;transform:scale(.92)}}to{{opacity:1;transform:none}}}}
+"""
+
+# Card themes. The design changes from reel to reel so the cards never look like one template.
+THEME_CSS = f"""
+.card.paper{{background:#F2EEE4;color:#16181D}}
+.paper .grid{{background-image:repeating-linear-gradient(transparent 0 88px,rgba(22,24,29,.08) 88px 91px);background-size:auto}}
+.paper .grid::after{{content:'';position:absolute;top:0;bottom:0;left:64px;width:3px;background:rgba(214,80,60,.35)}}
+.paper .glow{{display:none}}
+.paper .handle{{color:#16181D;opacity:.55}}
+.paper .acc{{color:#16181D;background:linear-gradient(transparent 55%,{LIME} 55% 90%,transparent 90%)}}
+.paper .tag{{border-color:#16181D;color:#16181D}}
+.paper .big{{color:#16181D;text-shadow:12px 12px 0 {LIME}}}
+.paper .item{{border-color:#D9D2C3}}
+.paper .item .n{{color:#16181D}}
+.paper .msg.in{{background:#FFFFFF;box-shadow:0 10px 30px rgba(0,0,0,.08)}}
+.paper .chathead{{color:#6B6F7A}}
+
+.card.glass{{background:transparent}}
+.glass .grid,.glass .glow,.glass .handle{{display:none}}
+.glass .content{{left:64px;right:64px;top:0;bottom:640px;height:fit-content;margin:auto 0;padding:72px 64px;border-radius:56px;
+  background:rgba(13,15,20,.6);border:2px solid rgba(255,255,255,.16);box-shadow:0 30px 90px rgba(0,0,0,.45);
+  animation:panel .45s cubic-bezier(.2,.9,.3,1.1) both}}
+.glass .item{{border-color:rgba(255,255,255,.12)}}
+.glass .msg.in{{background:rgba(255,255,255,.12)}}
+
+.card.terminal{{background:#070B08;font-family:'JetBrains Mono',monospace}}
+.terminal .grid{{background-image:repeating-linear-gradient(rgba(120,255,140,.035) 0 2px,transparent 2px 6px);background-size:auto}}
+.terminal .glow{{background:radial-gradient(circle,rgba(80,255,120,.12),transparent 70%)}}
+.terminal .content{{top:280px;height:auto;padding:120px 56px 60px;border:2px solid #1D3322;border-radius:28px;background:rgba(9,16,11,.92)}}
+.terminal .content::before{{content:'';position:absolute;top:44px;left:48px;width:22px;height:22px;border-radius:50%;
+  background:#FF5F57;box-shadow:38px 0 #FEBC2E,76px 0 #28C840}}
+.terminal h1,.terminal .big,.terminal .item,.terminal .item .n{{font-family:'JetBrains Mono',monospace}}
+.terminal h1{{font-size:76px;letter-spacing:-2px}}
+.terminal .big{{font-size:220px;letter-spacing:-6px}}
+.terminal .item{{font-size:44px;border-color:#16261A}}
+.terminal .item .n::before{{content:'> '}}
+.terminal .tag{{border-radius:10px}}
+
+.phone{{position:absolute;left:190px;right:190px;top:170px;height:1060px;border-radius:90px;background:#0E1621;overflow:hidden;
+  border:14px solid #15171C;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 3px rgba(255,255,255,.1);
+  animation:panel .45s cubic-bezier(.2,.9,.3,1.1) both}}
+.phone .island{{position:absolute;top:20px;left:50%;width:150px;height:42px;margin-left:-75px;border-radius:24px;background:#000;z-index:2}}
+.tgbar{{position:absolute;top:0;left:0;right:0;height:186px;padding:88px 34px 0;background:#17212B;display:flex;gap:20px;align-items:center}}
+.tgbar .ava{{width:78px;height:78px;border-radius:50%;background:{LIME};color:#0D0F14;font-family:Unbounded;font-weight:800;
+  font-size:26px;display:flex;align-items:center;justify-content:center;flex:none}}
+.tgbar b{{display:block;font-size:36px;font-weight:800;color:#fff}}
+.tgbar span{{font-size:27px;color:#6C7883;font-weight:700}}
+.thread{{position:absolute;top:206px;left:26px;right:26px;bottom:40px;display:flex;flex-direction:column;justify-content:flex-end}}
+.phone .msg{{font-size:39px;padding:22px 30px;border-radius:28px;max-width:88%;margin:9px 0;line-height:1.3}}
+.phone .msg.in{{background:#182533;color:#fff;border-bottom-left-radius:8px}}
+.phone .msg.out{{background:#2B5278;color:#fff;border-bottom-right-radius:8px}}
+.phone .msg small{{display:block;text-align:right;font-size:22px;color:rgba(255,255,255,.5);margin-top:4px}}
 """
 
 SEEK_JS = """
@@ -165,8 +225,23 @@ def accented(text, accent=None, words_anim=False, delay0=0.1, step=0.07):
     return "<br>".join(out)
 
 
-def card_html(c):
+def phone_html(c):
+    """Telegram chat inside a phone: the header is the bot, "me" messages are the other side."""
+    msgs = ""
+    for i, m in enumerate(c["messages"]):
+        time = f'<small>{esc(m["time"])}</small>' if m.get("time") else ""
+        side = "out" if m.get("me") else "in"
+        msgs += f'<div class="msg {side}" style="animation:up .4s {0.35 + i * 0.75:.2f}s both">{esc(m["text"])}{time}</div>'
+    return (f'<div class="phone"><div class="island"></div><div class="tgbar"><div class="ava">AI</div>'
+            f'<div><b>{esc(c.get("title", "AI-агент"))}</b><span>{esc(c.get("status", "бот"))}</span></div></div>'
+            f'<div class="thread">{msgs}</div></div>')
+
+
+def card_html(c, theme="dark"):
     k = c["kind"]
+    if k == "chat" and c.get("frame") == "phone":
+        return f"""<div class="card {theme}"><div class="grid"></div><div class="glow"></div>
+<div class="handle">{HANDLE}</div>{phone_html(c)}</div>"""
     if k == "stat":
         m = re.match(r"^(\D*)([\d.,]+)(.*)$", c["value"])
         if m:
@@ -191,7 +266,7 @@ def card_html(c):
         body = f'<div class="chathead">{esc(c.get("title", ""))}</div><div style="display:flex;flex-direction:column">{msgs}</div>'
     else:
         raise ValueError(f"unknown card kind {k}")
-    return f"""<div class="card"><div class="grid"></div><div class="glow"></div>
+    return f"""<div class="card {theme}"><div class="grid"></div><div class="glow"></div>
 <div class="handle">{HANDLE}</div><div class="content">{body}</div></div>"""
 
 
@@ -205,7 +280,7 @@ font-family:Unbounded;font-weight:800;font-size:72px;line-height:1.12;letter-spa
 
 
 def render_frames(page, body, seconds, outdir, transparent):
-    page.set_content(f"<html><head><meta charset='utf-8'><style>{BASE_CSS}</style></head>"
+    page.set_content(f"<html><head><meta charset='utf-8'><style>{BASE_CSS}{THEME_CSS}</style></head>"
                      f"<body style='background:{'transparent' if transparent else BG}'>{body}"
                      f"<script>{SEEK_JS}</script></body></html>")
     page.evaluate("document.fonts.ready")
@@ -230,22 +305,23 @@ def main(plan_path):
 
     build_ass(words, f"{tmp}/subs.ass")
 
-    overlays = []  # (kind, start, end, input_args)
-    # per-card transition: "smooth" = soft fade, "sharp" = fast slide in / out (for contrast, lists)
-    transition = {(c["start"], c["end"]): c.get("transition", plan.get("transition", "smooth"))
-                  for c in plan.get("cards", [])}
+    # cards and clips; transition "smooth" = soft fade, "sharp" = slide (cards) or hard cut + punch-in (clips)
+    overlays, banners = [], []
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=CHROME)
         page = browser.new_page(viewport={"width": W, "height": H})
         for i, c in enumerate(plan.get("cards", [])):
-            s, e = c["start"], c["end"]
+            o = dict(s=c["start"], e=c["end"], kind=c["kind"], sharp=c.get("transition", plan.get("transition")) == "sharp")
             if c["kind"] == "clip":
-                overlays.append(("clip", s, e, ["-ss", str(c.get("from", 0)), "-t", f"{e - s:.3f}", "-i", p(c["file"])]))
-                continue
-            d = f"{tmp}/card{i}"
-            render_frames(page, card_html(c), e - s, d, transparent=False)
-            overlays.append(("card", s, e, ["-framerate", str(FPS), "-i", f"{d}/%05d.png"]))
+                o.update(kind="clip", grade=c.get("grade", True),
+                         inp=["-ss", str(c.get("from", 0)), "-t", f"{o['e'] - o['s']:.3f}", "-i", p(c["file"])])
+            else:
+                theme = c.get("theme", plan.get("theme", "dark"))
+                d = f"{tmp}/card{i}"
+                render_frames(page, card_html(c, theme), o["e"] - o["s"], d, transparent=theme == "glass")
+                o.update(kind="card", glass=theme == "glass", inp=["-framerate", str(FPS), "-i", f"{d}/%05d.png"])
+            overlays.append(o)
         for key, top in (("hook", 260), ("cta", 300)):
             b = plan.get(key)
             if not b:
@@ -255,7 +331,7 @@ def main(plan_path):
             e = b.get("end", total)
             d = f"{tmp}/{key}"
             render_frames(page, banner_html(b["text"], b.get("accent"), b.get("top", top)), e - s, d, transparent=True)
-            overlays.append(("banner", s, e, ["-framerate", str(FPS), "-i", f"{d}/%05d.png"]))
+            banners.append((s, e, ["-framerate", str(FPS), "-i", f"{d}/%05d.png"]))
         browser.close()
 
     args = ["ffmpeg", "-y", "-v", "error", "-stats", "-i", src]
@@ -273,24 +349,39 @@ def main(plan_path):
         last = f"zo{i}"
 
     idx = 1
-    banners = []
-    for kind, s, e, inp in overlays:
-        if kind == "banner":
-            banners.append((s, e, inp)); continue
-        args += inp
-        prep = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},setsar=1," if kind == "clip" else ""
+    for o in overlays:
+        s, e, sharp = o["s"], o["e"], o["sharp"]
         d = e - s
-        if transition.get((s, e)) == "sharp":
+        args += o["inp"]
+        on = f"enable='between(t,{s},{e})'"
+        if o.get("glass"):
+            # frost the speaker behind a glass card: blurred, dimmed copy of the frame that fades with the card
+            f = 0.15 if sharp else 0.4
+            fc.append(f"[{last}]split[gs{idx}][gb{idx}]")
+            fc.append(f"[gb{idx}]scale=270:480,boxblur=6:2,scale={W}:{H},eq=brightness=-0.08:saturation=0.8,format=rgba,"
+                      f"fade=in:st={s}:d={f}:alpha=1,fade=out:st={e - f:.3f}:d={f}:alpha=1[gf{idx}]")
+            fc.append(f"[gs{idx}][gf{idx}]overlay={on}[gv{idx}]")
+            last = f"gv{idx}"
+        chain = f"[{idx}:v]"
+        if o["kind"] == "clip":
+            chain += f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},setsar=1,"
+            if o["grade"]:
+                chain += "eq=contrast=1.05:brightness=-0.02:saturation=0.88,vignette=angle=PI/5,"
+            if sharp:  # hard cut in, then a quick settle from a 12% push-in
+                chain += (f"scale=w='trunc({W}*(1+0.12*pow(max(0,1-t/0.3),2))/2)*2':h=-2:eval=frame,"
+                          f"crop={W}:{H}:(iw-{W})/2:(ih-{H})/2,")
+        chain += f"format=rgba,trim=duration={d:.3f},"
+        ov = "overlay=eof_action=pass"
+        if not sharp:
+            fd = 0.4
+            chain += f"fade=in:st=0:d={fd}:alpha=1,fade=out:st={max(d - fd, 0):.3f}:d={fd}:alpha=1,"
+        elif o["kind"] == "card":
             a, b = 0.22, 0.16  # slide-in and slide-out durations
-            fc.append(f"[{idx}:v]{prep}format=rgba,trim=duration={d:.3f},setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
             x = (f"if(lt(t,{s + a:.3f}),main_w*pow(1-(t-{s})/{a},3),"
                  f"if(gt(t,{e - b:.3f}),-main_w*pow((t-{e - b:.3f})/{b},2),0))")
-            fc.append(f"[{last}][o{idx}]overlay=x='{x}':y=0:eval=frame:eof_action=pass:enable='between(t,{s},{e})'[v{idx}]")
-        else:
-            fd = 0.4
-            fc.append(f"[{idx}:v]{prep}format=rgba,trim=duration={d:.3f},fade=in:st=0:d={fd}:alpha=1,"
-                      f"fade=out:st={max(d - fd, 0):.3f}:d={fd}:alpha=1,setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
-            fc.append(f"[{last}][o{idx}]overlay=eof_action=pass:enable='between(t,{s},{e})'[v{idx}]")
+            ov = f"overlay=x='{x}':y=0:eval=frame:eof_action=pass"
+        fc.append(f"{chain}setpts=PTS-STARTPTS+{s}/TB[o{idx}]")
+        fc.append(f"[{last}][o{idx}]{ov}:{on}[v{idx}]")
         last = f"v{idx}"; idx += 1
 
     subs = f"{tmp}/subs.ass".replace(":", "\\:")
