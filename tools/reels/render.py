@@ -15,7 +15,8 @@ edit.json:
   "cards": [                       # B-roll, full screen, speech and subtitles continue on top
     {"start": 4, "end": 7, "kind": "stat", "value": "90%", "label": "проектов ломаются после запуска"},
     {"start": 9, "end": 12, "kind": "text", "tag": "Главное", "text": "Код это шаг №5", "accent": "шаг №5"},
-    {"start": 13, "end": 17, "kind": "list", "title": "3 шага", "items": ["...", "..."], "theme": "paper"},
+    {"start": 13, "end": 17, "kind": "list", "title": "3 шага", "items": ["...", "..."], "theme": "paper",
+     "item_at": [0.4, 1.4, 2.3]},     # optional: when each item appears, seconds into the card
     {"start": 18, "end": 22, "kind": "chat", "title": "Telegram-бот", "frame": "phone",
      "messages": [{"me": true, "text": "..."}, {"me": false, "text": "...", "time": "19:02"}]},
     {"start": 23, "end": 26, "kind": "clip", "file": "broll.mp4", "from": 0, "transition": "sharp", "grade": true}
@@ -255,8 +256,9 @@ def card_html(c, theme="dark"):
         tag = f'<div class="tag">{esc(c["tag"])}</div>' if c.get("tag") else ""
         body = f'{tag}<h1>{accented(c["text"], c.get("accent"), words_anim=True)}</h1>'
     elif k == "list":
+        at = c.get("item_at") or [0.25 + i * 0.35 for i in range(len(c["items"]))]  # seconds into the card, to match speech
         items = "".join(
-            f'<div class="item" style="animation:up .45s {0.25 + i * 0.35:.2f}s both"><span class="n">{i + 1}</span><span>{esc(t)}</span></div>'
+            f'<div class="item" style="animation:up .45s {at[i]:.2f}s both"><span class="n">{i + 1}</span><span>{esc(t)}</span></div>'
             for i, t in enumerate(c["items"]))
         body = f'<h1 style="font-size:78px;margin-bottom:40px;animation:up .45s both">{accented(c["title"], c.get("accent"))}</h1>{items}'
     elif k == "chat":
