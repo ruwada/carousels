@@ -9,7 +9,7 @@ punch-in zooms, CTA plate, loudness normalised to -14 LUFS.
     # fix spelling in words.json using whisper.txt, write edit.json (see render.py docstring)
     python3 render.py work/edit.json
 
-B-roll from Pexels (needs `PEXELS_API_KEY`): `python3 pexels.py search "man typing laptop"`, then
+B-roll from Pexels (key: API credential for api.pexels.com in the environment, or `PEXELS_API_KEY`): `python3 pexels.py search "man typing laptop"`, then
 `python3 pexels.py get <id> broll/`. Check several frames of every clip before using it.
 
 Card kinds: `stat` (animated number), `text`, `list`, `chat` (messenger mock-up, `"frame": "phone"`

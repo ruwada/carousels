@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Find and fetch vertical B-roll from Pexels.
 
-    PEXELS_API_KEY=... python3 pexels.py search "man typing laptop" [more queries...]
-    PEXELS_API_KEY=... python3 pexels.py get 12893567 broll/        # saves broll/12893567.mp4
+    python3 pexels.py search "man typing laptop" [more queries...]
+    python3 pexels.py get 12893567 broll/        # saves broll/12893567.mp4
+
+The key comes from the environment's API credential for api.pexels.com, or from PEXELS_API_KEY.
 
 Search skips clips whose title mentions women, couples or children (the channel's B-roll rule),
 but titles are not enough: always look at several frames of every clip before using it.
@@ -14,8 +16,10 @@ SKIP = re.compile(r"wom[ae]n|girl|lady|female|her-|mother|bride|couple|family|ki
 
 
 def call(url):
-    req = urllib.request.Request(url, headers={"Authorization": os.environ["PEXELS_API_KEY"], "User-Agent": "reels"})
-    return json.load(urllib.request.urlopen(req))
+    headers = {"User-Agent": "reels"}
+    if os.environ.get("PEXELS_API_KEY"):  # otherwise the environment's API credential for api.pexels.com is used
+        headers["Authorization"] = os.environ["PEXELS_API_KEY"]
+    return json.load(urllib.request.urlopen(urllib.request.Request(url, headers=headers)))
 
 
 def best_file(video):
